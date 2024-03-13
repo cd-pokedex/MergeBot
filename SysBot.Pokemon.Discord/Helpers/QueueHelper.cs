@@ -42,11 +42,11 @@ public static class QueueHelper<T> where T : PKM, new()
                 if (trade is PB7 && lgcode != null)
                 {
                     var (thefile, lgcodeembed) = CreateLGLinkCodeSpriteEmbed(lgcode);
-                    await trader.SendFileAsync(thefile, $"Your trade code will be.", embed: lgcodeembed).ConfigureAwait(false);
+                    await context.Channel.SendFileAsync(thefile, $"Your trade code will be.", embed: lgcodeembed).ConfigureAwait(false);
                 }
                 else
                 {
-                    await trader.SendMessageAsync($"Your trade code will be: **{code:0000 0000}**.\nI will DM you when your trade is about to start.").ConfigureAwait(false);
+                    await context.Channel.SendMessageAsync($"Your trade code will be: **{code:0000 0000}**.\nI will DM you when your trade is about to start.").ConfigureAwait(false);
                 }
             }
 
@@ -71,7 +71,7 @@ public static class QueueHelper<T> where T : PKM, new()
         var name = user.Username;
 
         var trainer = new PokeTradeTrainerInfo(trainerName, userID);
-        var notifier = new DiscordTradeNotifier<T>(pk, trainer, code, trader, batchTradeNumber, totalBatchTrades, isMysteryEgg, lgcode);
+        var notifier = new DiscordTradeNotifier<T>(pk, trainer, code, context, trader, batchTradeNumber, totalBatchTrades, isMysteryEgg, lgcode);
         var detail = new PokeTradeDetail<T>(pk, trainer, notifier, t, code, sig == RequestSignificance.Favored, lgcode, batchTradeNumber, totalBatchTrades, isMysteryEgg);
         var trade = new TradeEntry<T>(detail, userID, type, name);
         var strings = GameInfo.GetStrings(1);

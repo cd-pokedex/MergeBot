@@ -1,4 +1,5 @@
 using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using PKHeX.Core;
 using PKHeX.Core.AutoMod;
@@ -19,17 +20,20 @@ public class DiscordTradeNotifier<T> : IPokeTradeNotifier<T>
     private PokeTradeTrainerInfo Info { get; }
     private int Code { get; }
     private List<Pictocodes> LGCode { get; }
+
+    private SocketCommandContext Context { get; }
     private SocketUser Trader { get; }
     private int BatchTradeNumber { get; }
     private int TotalBatchTrades { get; }
     private bool IsMysteryEgg { get; }
 
-    public DiscordTradeNotifier(T data, PokeTradeTrainerInfo info, int code, SocketUser trader, int batchTradeNumber, int totalBatchTrades, bool isMysteryEgg, List<Pictocodes> lgcode)
+    public DiscordTradeNotifier(T data, PokeTradeTrainerInfo info, int code, SocketCommandContext context, SocketUser trader, int batchTradeNumber, int totalBatchTrades, bool isMysteryEgg, List<Pictocodes> lgcode)
     {
         Data = data;
         Info = info;
         Code = code;
         Trader = trader;
+        Context = context;
         BatchTradeNumber = batchTradeNumber;
         TotalBatchTrades = totalBatchTrades;
         IsMysteryEgg = isMysteryEgg;
@@ -46,14 +50,14 @@ public class DiscordTradeNotifier<T> : IPokeTradeNotifier<T>
             var batchInfo = TotalBatchTrades > 1 ? $" (Trade {BatchTradeNumber} of {TotalBatchTrades})" : "";
             var receive = Data.Species == 0 ? string.Empty : $" ({Data.Nickname})";
             var message = $"Initializing trade{receive}{batchInfo}. Please be ready. Your code is **{Code:0000 0000}**.";
-            Trader.SendMessageAsync(message).ConfigureAwait(false);
+            Context.Channel.SendMessageAsync(message).ConfigureAwait(false);
         }
         else
         {
             var receive = Data.Species == 0 ? string.Empty : $" ({Data.Nickname})";
             var (thefile, lgcodeembed) = CreateLGLinkCodeSpriteEmbed(LGCode);
 
-            Trader.SendFileAsync(thefile, $"Initializing trade{receive}. Please be ready. Your code is", embed: lgcodeembed).ConfigureAwait(false);
+            Context.Channel.SendFileAsync(thefile, $"Initializing trade{receive}. Please be ready. Your code is", embed: lgcodeembed).ConfigureAwait(false);
         }
     }
 
@@ -72,13 +76,13 @@ public class DiscordTradeNotifier<T> : IPokeTradeNotifier<T>
             message = $"I'm waiting for you{trainer}{batchInfo}! Your code is **{Code:0000 0000}**. My IGN is **{routine.InGameName}**.";
         }
 
-        Trader.SendMessageAsync(message).ConfigureAwait(false);
+        Context.Channel.SendMessageAsync(message).ConfigureAwait(false);
     }
 
     public void TradeCanceled(PokeRoutineExecutor<T> routine, PokeTradeDetail<T> info, PokeTradeResult msg)
     {
         OnFinish?.Invoke(routine);
-        Trader.SendMessageAsync($"Trade canceled: {msg}").ConfigureAwait(false);
+        Context.Channel.SendMessageAsync($"Trade canceled: {msg}").ConfigureAwait(false);
     }
 
     public void TradeFinished(PokeRoutineExecutor<T> routine, PokeTradeDetail<T> info, T result)
@@ -86,14 +90,14 @@ public class DiscordTradeNotifier<T> : IPokeTradeNotifier<T>
         OnFinish?.Invoke(routine);
         var tradedToUser = Data.Species;
         var message = tradedToUser != 0 ? (IsMysteryEgg ? "Trade finished. Enjoy your **Mystery Egg**!" : $"Trade finished. Enjoy your **{(Species)tradedToUser}**!") : "Trade finished!";
-        Trader.SendMessageAsync(message).ConfigureAwait(false);
+        Context.Channel.SendMessageAsync(message).ConfigureAwait(false);
         if (result.Species != 0 && Hub.Config.Discord.ReturnPKMs)
-            Trader.SendPKMAsync(result, "Here's what you traded me!").ConfigureAwait(false);
+            Context.Channel.SendPKMAsync(result, "Here's what you traded me!").ConfigureAwait(false);
     }
 
     public void SendNotification(PokeRoutineExecutor<T> routine, PokeTradeDetail<T> info, string message)
     {
-        Trader.SendMessageAsync(message).ConfigureAwait(false);
+        Context.Channel.SendMessageAsync(message).ConfigureAwait(false);
     }
 
     public void SendNotification(PokeRoutineExecutor<T> routine, PokeTradeDetail<T> info, PokeTradeSummary message)
@@ -107,13 +111,13 @@ public class DiscordTradeNotifier<T> : IPokeTradeNotifier<T>
         var msg = message.Summary;
         if (message.Details.Count > 0)
             msg += ", " + string.Join(", ", message.Details.Select(z => $"{z.Heading}: {z.Detail}"));
-        Trader.SendMessageAsync(msg).ConfigureAwait(false);
+        Context.Channel.SendMessageAsync(msg).ConfigureAwait(false);
     }
 
     public void SendNotification(PokeRoutineExecutor<T> routine, PokeTradeDetail<T> info, T result, string message)
     {
         if (result.Species != 0 && (Hub.Config.Discord.ReturnPKMs || info.Type == PokeTradeType.Dump))
-            Trader.SendPKMAsync(result, message).ConfigureAwait(false);
+            Context.Channel.SendPKMAsync(result, message).ConfigureAwait(false);
     }
 
     private void SendNotificationZ3(SeedSearchResult r)
@@ -128,7 +132,7 @@ public class DiscordTradeNotifier<T> : IPokeTradeNotifier<T>
             x.IsInline = false;
         });
         var msg = $"Here are the details for `{r.Seed:X16}`:";
-        Trader.SendMessageAsync(msg, embed: embed.Build()).ConfigureAwait(false);
+        Context.Channel.SendMessageAsync(msg, embed: embed.Build()).ConfigureAwait(false);
     }
 
     public static (string, Embed) CreateLGLinkCodeSpriteEmbed(List<Pictocodes> lgcode)
